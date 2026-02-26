@@ -1,45 +1,45 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { socket } from '../socket';
 
-const Output = ({ currentSign, confidence, sentence, onClear }) => {
-  const speakSentence = () => {
-    if (sentence.length === 0) return;
-    const utterance = new SpeechSynthesisUtterance(sentence.join(" "));
-    utterance.lang = "en-IN";
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
+const Output = ({ prediction, confidence, sentence, onClear }) => {
+  const [sensitivity, setSensitivity] = useState(0.85);
+
+  const handleSensitivityChange = (e) => {
+    const value = parseFloat(e.target.value);
+    setSensitivity(value);
+    socket.emit("set_confidence", { threshold: value });
   };
-
-  React.useEffect(() => {
-    if (currentSign && currentSign !== "—") {
-      const utterance = new SpeechSynthesisUtterance(currentSign);
-      utterance.lang = "en-IN";
-      utterance.rate = 0.9;
-      window.speechSynthesis.speak(utterance);
-    }
-  }, [currentSign]);
 
   return (
     <div className="output-panel">
-      <div className="current-sign-container">
-        <h3 className="panel-title">Detected Sign</h3>
-        <div className="sign-text">{currentSign || "—"}</div>
-        {confidence > 0 && (
-          <div className="confidence-text">
-            Confidence: {(confidence * 100).toFixed(1)}%
-          </div>
-        )}
+      <div className="prediction-box">
+        <h3>Current Sign</h3>
+        <div className="prediction-text">
+          {prediction || "---"}
+          {prediction && <span className="confidence-pill">{(confidence * 100).toFixed(0)}%</span>}
+        </div>
       </div>
 
-      <div className="sentence-container">
-        <h3 className="panel-title">Sentence</h3>
-        <p className="sentence-buffer">
-          {sentence.length > 0 ? sentence.join(" ") : "Start signing..."}
-        </p>
+      <div className="sentence-box">
+        <h3>Sentence</h3>
+        <div className="sentence-text">{sentence || "Start signing to see text here..."}</div>
+        <button className="clear-btn" onClick={onClear}>Clear</button>
       </div>
 
-      <div className="button-group">
-        <button className="btn-clear" onClick={onClear}>Clear</button>
-        <button className="btn-speak" onClick={speakSentence}>Speak All</button>
+      <div className="sensitivity-control">
+        <div className="sensitivity-label">
+          <span>Sensitivity</span>
+          <span>{Math.round(sensitivity * 100)}%</span>
+        </div>
+        <input
+          type="range"
+          min="0.60"
+          max="0.95"
+          step="0.05"
+          value={sensitivity}
+          onChange={handleSensitivityChange}
+          className="sensitivity-slider"
+        />
       </div>
     </div>
   );

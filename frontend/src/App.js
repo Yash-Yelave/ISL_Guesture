@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import Camera from './components/Camera';
+import Display from './components/Display';
 import Output from './components/Output';
 import StatusBar from './components/StatusBar';
 import { socket } from './socket';
@@ -10,29 +10,9 @@ function App() {
   const [confidence, setConfidence] = useState(0);
   const [sentence, setSentence] = useState([]);
   const [connected, setConnected] = useState(socket.connected);
-  const [modelReady, setModelReady] = useState(false);
   const [bufferSize, setBufferSize] = useState(0);
 
   const lastAddedRef = useRef({ sign: "", time: 0 });
-
-  useEffect(() => {
-    const onConnect = () => setConnected(true);
-    const onDisconnect = () => setConnected(false);
-    const onStatus = (data) => setModelReady(data.ready);
-    const onBufferSize = (data) => setBufferSize(data.size);
-
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-    socket.on("status", onStatus);
-    socket.on("buffer_size", onBufferSize);
-
-    return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-      socket.off("status", onStatus);
-      socket.off("buffer_size", onBufferSize);
-    };
-  }, []);
 
   const handlePrediction = useCallback((text, conf) => {
     setCurrentSign(text);
@@ -46,10 +26,30 @@ function App() {
       setSentence(prev => {
         const newSentence = [...prev, text];
         return newSentence.slice(-20); // Keep max 20 words
+        // Note: For actual TTS or speech, you might trigger it here
       });
       lastAddedRef.current = { sign: text, time: now };
     }
   }, []);
+
+  useEffect(() => {
+    const onConnect = () => setConnected(true);
+    const onDisconnect = () => setConnected(false);
+    const onBufferSize = (data) => setBufferSize(data.size);
+    const onPrediction = (data) => handlePrediction(data.text, data.confidence);
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("buffer_size", onBufferSize);
+    socket.on("prediction", onPrediction);
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("buffer_size", onBufferSize);
+      socket.off("prediction", onPrediction);
+    };
+  }, [handlePrediction]);
 
   const handleClear = () => {
     setCurrentSign("");
@@ -70,20 +70,19 @@ function App() {
 
       <StatusBar 
         connected={connected} 
-        modelReady={modelReady} 
         bufferSize={bufferSize} 
       />
 
       <main className="main-grid">
         <div className="camera-panel">
-          <Camera onPrediction={handlePrediction} />
+          <Display />
         </div>
         
         <div className="output-panel-container">
           <Output 
-            currentSign={currentSign} 
+            prediction={currentSign} 
             confidence={confidence} 
-            sentence={sentence} 
+            sentence={sentence.join(" ")} 
             onClear={handleClear}
           />
         </div>

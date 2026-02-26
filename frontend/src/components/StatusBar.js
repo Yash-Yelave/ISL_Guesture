@@ -1,30 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { socket } from '../socket';
 
-const StatusBar = ({ connected, modelReady, bufferSize }) => {
-  const progress = (bufferSize / 30) * 100;
+const StatusBar = ({ connected, bufferSize = 0 }) => {
+  const [status, setStatus] = useState({
+    modelReady: false,
+    cameraReady: false
+  });
+
+  useEffect(() => {
+    socket.on('status', (data) => {
+      setStatus({
+        modelReady: data.ready,
+        cameraReady: data.camera
+      });
+    });
+
+    return () => socket.off('status');
+  }, []);
+
+  const bufferPercentage = Math.min(100, (bufferSize / 30) * 100);
 
   return (
     <div className="status-bar">
-      <div className="status-item">
-        <span className={`dot ${connected ? 'connected' : 'disconnected'}`}></span>
-        <span className="status-label">{connected ? 'Connected' : 'Disconnected'}</span>
-      </div>
-
-      <div className="status-item">
-        <span className={`badge ${modelReady ? 'model-ready' : 'dummy-mode'}`}>
-          {modelReady ? 'Model Ready' : 'Dummy Mode'}
-        </span>
-      </div>
-
-      <div className="status-item buffer-status">
-        <span className="status-label">Buffer: {bufferSize}/30</span>
-        <div className="progress-container">
-          <div 
-            className="progress-bar" 
-            style={{ width: `${progress}%` }}
-          ></div>
+      <div className="status-indicators">
+        <div className={`indicator ${connected ? 'connected' : 'disconnected'}`}>
+          <span className="dot"></span>
+          {connected ? 'Connected' : 'Disconnected'}
         </div>
+        
+        <div className={`badge ${status.modelReady ? 'ready' : 'dummy'}`}>
+          {status.modelReady ? 'Model Ready' : 'Dummy Mode'}
+        </div>
+
+        <div className={`badge ${status.cameraReady ? 'camera-on' : 'camera-off'}`}>
+          {status.cameraReady ? 'Camera On' : 'Camera Off'}
+        </div>
+      </div>
+
+      <div className="buffer-progress-container">
+        <div 
+          className="buffer-progress-bar" 
+          style={{ width: `${bufferPercentage}%` }}
+        ></div>
       </div>
     </div>
   );
